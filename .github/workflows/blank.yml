@@ -1,0 +1,36 @@
+name: Create VPS with ngrok on Windows
+
+on: [push]
+
+jobs:
+  create-vps:
+    runs-on: windows-2019
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Download ngrok
+      run: |
+        Invoke-WebRequest -Uri https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+        Expand-Archive ngrok.zip -DestinationPath $Env:USERPROFILE\ngrok
+
+    - name: Authenticate ngrok
+      env:
+        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+      run: $Env:USERPROFILE\ngrok\ngrok.exe authtoken $Env:NGROK_AUTHTOKEN
+
+    - name: Configure RDP Access
+      run: |
+        net user administrator Testes33
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+        netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
+
+    - name: Expose RDP with ngrok
+      run: |
+        Start-Process -NoNewWindow -FilePath "$Env:USERPROFILE\ngrok\ngrok.exe" -ArgumentList "tcp 3389"
+
+    - name: Display ngrok tunnels
+      run: |
+        Start-Sleep -Seconds 10
+        Invoke-RestMethod -Uri http://localhost:4040/api/tunnels
